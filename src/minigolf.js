@@ -8,6 +8,18 @@ Script.include('lib/common.js');
 
 const blueprints = require('lib/blueprints.js');
 
+blueprints.registerBlueprint('minigolf.timer', {
+    name: "Timer",
+    type: "Text",
+    text: "TEST",
+    color: {
+        red: 255,
+        green: 255,
+        blue: 192
+    }
+});
+
+
 blueprints.registerBlueprint('minigolf.ball', {
     name: "Golf ball",
     type: "Sphere",
@@ -173,11 +185,24 @@ function MiniGolfCourse(courseID, position) {
 
     this.reset();
 
+    this.timeID = null;
+
     Messages.subscribe(this.courseID);
     Messages.messageReceived.connect(this.onMessage.bind(this));
+
+    Script.update.connect(this.onUpdate.bind(this));
 }
 
 MiniGolfCourse.prototype = {
+    onUpdate: function(dt) {
+        if (this.round) {
+            this.roundTime += dt;
+            // Update text object
+            Entities.editEntity(this.timeID, {
+                text: this.roundTime.toFixed(2)
+            });
+        }
+    },
     onMessage: function(channel, message) {
         if (channel == this.courseID) {
             var msg = JSON.parse(message);
@@ -192,6 +217,28 @@ MiniGolfCourse.prototype = {
             }
         }
     },
+    roundStarted: function() {
+        this.timeID = blueprints.spawnBlueprint('minigolf.timer', {
+            text: "00:00",
+            position: {
+                x: 5,
+                y: 3,
+                z: 0
+            }
+        });
+        this.roundInProgress = true;
+        this.roundTime = 0;
+    },
+    roundCompleted: function() {
+        this.roundInProgress = false;
+        this.timeToComplete = this.roundTime;
+        this.round = null;
+
+        setTimeout(function() {
+            Entities.deleteEntity(this.timeID);
+            this.reset();
+        }.bind(this), 2000);
+    },
     reset: function() {
         this.startAreaID = blueprints.spawnBlueprint('minigolf.startScreen', {
             position: {
@@ -201,20 +248,20 @@ MiniGolfCourse.prototype = {
             }
         });
         ease(easeOutQuad, this.startAreaID, 2, 800, function() {
-        }.bind(this))
+        }.bind(this));
     },
     startRound: function() {
         if (this.startAreaID) {
             var entityID = this.startAreaID;
             ease(easeOutQuad, entityID, -2, 800, function() {
                 Entities.deleteEntity(entityID);
-            }.bind(this))
+            }.bind(this));
             this.startAreaID = null;
         }
         if (!this.round) {
-            this.round = new MiniGolfRound(this.position, this.reset.bind(this));
+            this.round = new MiniGolfRound(this.position, this.roundStarted.bind(this), this.roundComplete.bind(this));
 
-            console.log('round', this.round)
+            console.log('round', this.round);
 
             this.roundStartTimer = setTimeout(function() {
                 this.round.start();
@@ -242,15 +289,13 @@ MiniGolfCourse.prototype = {
     }
 };
 
+// Deletes and entity and all of its direct descendants (non recursive, depth of 1)
 function deleteEntity(entityID) {
-}
-
-function MiniGolfRound(position, onComplete) {
-    console.log("Creating golf round");
-    this.levels = ['minigolf.level_1', 'minigolf.level_2'];
-    this.position = position;
-    this.currentLevel = -1;
-    this.complete = onComplete;
+    var childrenIDs = findEntities({ parentID: entityID });
+    for (var i = 0; i < childrenIDs.length; ++i) {
+        Entities.deleteEnitty(childrenIDs[i]);
+    }
+    Entities.deleteEntity(entityID);
 }
 
 function ease(easeFn, entityID, dY, duration, onComplete) {
@@ -277,9 +322,21 @@ function ease(easeFn, entityID, dY, duration, onComplete) {
     }, 1000.0 / 60);
 }
 
+function MiniGolfRound(position, onStarted, onComplete) {
+    console.log("Creating golf round");
+    this.levels = ['minigolf.level_1', 'minigolf.level_2'];
+    this.position = position;
+    this.currentLevel = -1;
+    this.onStarted = onStarted;
+    this.onComplete = onComplete;
+    this.timeStarted = 0;
+    this.timeEnded = 0;
+}
+
 MiniGolfRound.prototype = {
     start: function() {
         if (this.currentLevel < 0) {
+            this.onStarted();
             this.startLevel(0);
         }
     },
@@ -289,7 +346,8 @@ MiniGolfRound.prototype = {
         this.currentLevel = level;
 
         if (this.currentLevel >= this.levels.length) {
-            this.complete();
+            this.timeEnded = Date.now();
+            this.onComplete();
             return;
         }
 
@@ -339,31 +397,11 @@ MiniGolfRound.prototype = {
     },
     unloadCurrentLevel: function() {
         if (this.currentLevelEntityID) {
-            //var position0 = Entities.getEntityProperties(this.currentLevelEntityID, 'position').position;
             var entityID = this.currentLevelEntityID;
             ease(easeOutQuad, this.currentLevelEntityID, -2, 800, function() {
                 Entities.deleteEntity(entityID);
-            }.bind(this))
+            }.bind(this));
 
-            //var dt = 0;
-            //var entityID = this.currentLevelEntityID;
-
-            //var id = setInterval(function() {
-            //    dt += 1000.0 / 60;
-
-            //    Entities.editEntity(entityID, {
-            //        position: {
-            //            x: position0.x,
-            //            y: easeOutQuad(dt, position0.y, position0.y - 2, 1400),
-            //            z: position0.z
-            //        }
-            //    });
-
-            //    if (dt > 1400) {
-            //        clearInterval(id);
-            //        Entities.deleteEntity(entityID);
-            //    }
-            //}, 1000.0 / 60);
             this.currentLevel = -1;
         }
     },
