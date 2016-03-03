@@ -1,4 +1,8 @@
-var SCRIPT_URL = Script.resolvePath('componentsClient.js');
+Script.include('module.js');
+
+require('console.js');
+
+//var SCRIPT_URL = Script.resolvePath('componentsClient.js');
 
 // Create a single entity in a scene, including its children, recursively
 // TODO Add blueprint generation here
@@ -32,9 +36,9 @@ function _createEntity(sceneName, entityManager, parentID, data) {
             data.userData = {};
         }
         data.userData.scene = sceneName;
-        data.userData.components = data.components;
+        //data.userData.components = data.components;
         data.userData = JSON.stringify(data.userData);
-        delete data.components;
+        //delete data.components;
     } else {
         data.userData = JSON.stringify({ scene: sceneName });
     }
@@ -44,7 +48,7 @@ function _createEntity(sceneName, entityManager, parentID, data) {
         data.visible = false;
     }
 
-    data.script = SCRIPT_URL;
+    //data.script = SCRIPT_URL;
 
     if (parentID) {
         data.parentID = parentID;
@@ -89,7 +93,7 @@ destroyScene = function(name) {
 var blueprintTypes = {};
 registerBlueprint = function(name, data) {
     if (name in blueprintTypes) {
-        console.warning("Overwriting type ", name);
+        console.warn("Overwriting type ", name);
     }
     print("Registering blueprint type " + name);
     blueprintTypes[name] = data;
@@ -125,4 +129,5 @@ spawnBlueprint = function(name, overrideProperties) {
     return createObject(properties);
 };
 
+exports.registerBlueprint = registerBlueprint;
 exports.spawnBlueprint = spawnBlueprint;
