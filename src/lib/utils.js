@@ -121,3 +121,33 @@ exports.deepCopy = function(a) {
     return obj;
 }
 deepCopy = exports.deepCopy;
+
+
+findEntity = function(properties, searchRadius) {
+    var entities = findEntities(properties, searchRadius);
+    return entities.length > 0 ? entities[0] : null;
+}
+
+// Return all entities with properties `properties` within radius `searchRadius`
+findEntities = function(properties, searchRadius) {
+    searchRadius = searchRadius ? searchRadius : 100000;
+    var entities = Entities.findEntities({ x: 0, y: 0, z: 0 }, searchRadius);
+    var matchedEntities = [];
+    var keys = Object.keys(properties);
+    for (var i = 0; i < entities.length; ++i) {
+        var match = true;
+        var candidateProperties = Entities.getEntityProperties(entities[i], keys);
+        for (var key in properties) {
+            if (candidateProperties[key] != properties[key]) {
+                // This isn't a match, move to next entity
+                match = false;
+                break;
+            }
+        }
+        if (match) {
+            matchedEntities.push(entities[i]);
+        }
+    }
+
+    return matchedEntities;
+}
