@@ -8,6 +8,28 @@ Script.include('lib/common.js');
 
 const blueprints = require('lib/blueprints.js');
 
+blueprints.registerBlueprint('minigolf.ball', {
+    name: "Golf ball",
+    type: "Sphere",
+    color: {
+        red: 255,
+        green: 255,
+        blue: 192
+    },
+    isDynamic: true,
+    damping: 0,
+    gravity: {
+        x: 0,
+        y: -5,
+        z: 0
+    },
+    velocity: {
+        x: 0,
+        y: -0.1,
+        z: 0
+    }
+});
+
 blueprints.registerBlueprint('minigolf.startScreen', {
     name: "Start Screen",
     children: [
@@ -46,13 +68,30 @@ blueprints.registerBlueprint('minigolf.level_1', {
     name: "Level 1",
     children: [
         {
-            name: "teeLocation"
-        },
-        {
             name: "tee"
         },
         {
-            name: "hole"
+            name: "hole",
+            localPosition: {
+                x: 2,
+                y: 1,
+                z: 2
+            },
+            children: [
+                {
+                    type: 'Sphere',
+                    dimensions: {
+                        x: 0.2,
+                        y: 0.2,
+                        z: 0.2
+                    },
+                    color: {
+                        red: 255,
+                        green: 192,
+                        blue: 255
+                    }
+                }
+            ]
         },
         {
             name: 'level',
@@ -86,7 +125,38 @@ blueprints.registerBlueprint('minigolf.level_2', {
                 green: 255,
                 blue: 192
             }
-        }
+        },
+        {
+            name: "tee",
+            localPosition: {
+                x: 2,
+                y: 1,
+                z: 2
+            },
+        },
+        {
+            name: "hole",
+            localPosition: {
+                x: -2,
+                y: 1,
+                z: 2
+            },
+            children: [
+                {
+                    type: 'Sphere',
+                    dimensions: {
+                        x: 0.2,
+                        y: 0.2,
+                        z: 0.2
+                    },
+                    color: {
+                        red: 192,
+                        green: 192,
+                        blue: 255
+                    }
+                }
+            ]
+        },
     ]
 });
 
@@ -113,6 +183,7 @@ MiniGolfCourse.prototype = {
             var msg = JSON.parse(message);
 
             if (msg.action == 'start') {
+                console.log("Got message start");
                 this.startRound();
             } else if (msg.action == 'win') {
                 if (this.round) {
@@ -147,9 +218,11 @@ MiniGolfCourse.prototype = {
 
             this.roundStartTimer = setTimeout(function() {
                 this.round.start();
+                /*
                 setTimeout(function() {
                     this.round.startLevel(1);
                 }.bind(this), 2500);
+                */
             }.bind(this), 0);
         }
     },
@@ -228,10 +301,41 @@ MiniGolfRound.prototype = {
             }
         });
         ease(easeOutQuad, this.currentLevelEntityID, 2, 800, function() {
+            var teeEntityID = findEntity({
+                parentID: this.currentLevelEntityID,
+                name: 'tee'
+            });
+            if (!teeEntityID) {
+                console.error("Can't find tee entity");
+                return;
+            }
+            var teePosition = Entities.getEntityProperties(teeEntityID, 'position').position;
+            this.ballID = blueprints.spawnBlueprint('minigolf.ball', {
+                parentID: this.currentLevelEntityID,
+                position: Vec3.sum(teePosition, { x: 0, y: 1, z: 0 })
+            });
+
+            var holeEntityID = findEntity({
+                parentID: this.currentLevelEntityID,
+                name: 'hole'
+            });
+            this.holePosition = Entities.getEntityProperties(holeEntityID, 'position').position;
+            this.checkForBallInHole();
         }.bind(this))
     },
+    checkForBallInHole: function() {
+        var ballPosition = Entities.getEntityProperties(this.ballID, 'position').position;
+        if (Vec3.distance(ballPosition, this.holePosition) < 0.3) {
+            console.log("BALL IN HOLE");
+            this.ballIn();
+        } else {
+            setTimeout(this.checkForBallInHole.bind(this), 1000);
+        }
+    },
     ballIn: function() {
-        startLevel(this.currentLevel + 1);
+        setTimeout(function() {
+            this.startLevel(this.currentLevel + 1);
+        }.bind(this), 1000);
     },
     unloadCurrentLevel: function() {
         if (this.currentLevelEntityID) {
@@ -283,4 +387,8 @@ Script.scriptEnding.connect(function() {
     golfCourse.destroy();
 });
 
-//setTimeout(golfCourse.startRound.bind(golfCourse), 1000);
+setTimeout(function() {
+    Messages.sendMessage(golfCourse.courseID, JSON.stringify({
+        action: 'start'
+    }));
+}, 1000);
