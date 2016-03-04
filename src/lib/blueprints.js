@@ -30,18 +30,19 @@ function _createEntity(sceneName, entityManager, parentID, data) {
         children = data.children;
         delete data.children;
     }
-    if (data.hasOwnProperty('components')) {
-        //data.userData = parseJSON(data.userData);
-        if (typeof data.userData !== 'object') {
-            data.userData = {};
-        }
-        data.userData.scene = sceneName;
-        //data.userData.components = data.components;
-        data.userData = JSON.stringify(data.userData);
-        //delete data.components;
-    } else {
-        data.userData = JSON.stringify({ scene: sceneName });
-    }
+    // if (data.hasOwnProperty('components')) {
+    //     //data.userData = parseJSON(data.userData);
+    //     if (typeof data.userData !== 'object') {
+    //         data.userData = {};
+    //     }
+    //     data.userData.scene = sceneName;
+    //     //data.userData.components = data.components;
+    //     data.userData = JSON.stringify(data.userData);
+    //     //delete data.components;
+    // } else {
+    //     data.userData = JSON.stringify({ scene: sceneName });
+    // }
+    data.userData = JSON.stringify(data.userData);
     print(data.userData);
     if (!data.hasOwnProperty('type')) {
         data.type = "Box";
